@@ -20,7 +20,7 @@ class MPCControl_yvel(MPCControl_base):
         # States: [wy, beta, vx]
         # beta limit: 10 deg (~0.1745 rad)
         inf = 1e9
-        beta_limit = np.deg2rad(10)
+        beta_limit = np.deg2rad(10) - 1e-3
 
         # Delta States Constraints relative to trim (trim is 0 for these)
         self.x_min = np.array([-inf, -beta_limit, -inf])

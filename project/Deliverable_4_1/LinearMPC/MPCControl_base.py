@@ -146,6 +146,9 @@ class MPCControl_base:
         self.u_var = cp.Variable((self.nu, self.N))
         self.x_param = cp.Parameter(self.nx)
 
+        s_var = cp.Variable((self.nx, self.N + 1), nonneg=True)
+        rho_slack = 1e4 # need to see how this behaves, might need to increase
+
         cost = 0
         constraints = []
 
@@ -160,9 +163,9 @@ class MPCControl_base:
                 self.x_var[:, k + 1] == self.A @ self.x_var[:, k] + self.B @ self.u_var[:, k]
             )
 
-            # State Constraints
-            constraints.append(self.x_var[:, k] <= self.x_max)
-            constraints.append(self.x_var[:, k] >= self.x_min)
+            # State Constraints - now becomes soft constraints
+            constraints.append(self.x_var[:, k] <= self.x_max + s_var[:, k])
+            constraints.append(self.x_var[:, k] >= self.x_min - s_var[:, k])
 
             # Input Constraints
             constraints.append(self.u_var[:, k] <= self.u_max)
@@ -170,6 +173,9 @@ class MPCControl_base:
 
         # Terminal Cost
         cost += cp.quad_form(self.x_var[:, self.N], self.Qf)
+
+        # L1 for penalty of the soft constraints
+        cost += rho_slack * cp.sum(s_var[:, k])   # L1 penalty
 
         # Terminal Constraint (Invariant Set)
         # A_f * x_N <= b_f
