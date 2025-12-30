@@ -7,26 +7,56 @@ class MPCControl_roll(MPCControl_base):
     x_ids: np.ndarray = np.array([2, 5])
     u_ids: np.ndarray = np.array([3])
 
-    def _setup_controller(self) -> None:
-        #################################################
-        # YOUR CODE HERE
+    def set_tuning_parameters(self):
+        """
+        Define the Cost Matrices Q and R.
+        These are used by the Base Class to calculate LQR (P) and setup the MPC cost.
+        """
+        # State vector for this subsystem is: [wz, gamma]
+        # We want to stabilize gamma (angle) aggressively.
+        # We put a smaller cost on wz (rate) to dampen oscillations.
+        self.Q = np.diag([1.0, 20.0])
 
-        self.ocp = ...
+        # Input vector is: [Pdiff]
+        # We penalize input usage. If this is too low, the controller might
+        # oscillate (Bang-Bang). If too high, it reacts too slowly.
+        self.R = np.diag([1.0])
 
-        # YOUR CODE HERE
-        #################################################
+    def set_constraints(self):
+        """
+        Define the constraints for States (x) and Inputs (u).
+        """
+        # Input Constraints
+        limit_pdiff = 20.0  # Max differential thrust (N)
+        self.u_min = np.array([-limit_pdiff]) - self.us
+        self.u_max = np.array([limit_pdiff]) - self.us
 
-    def get_u(
-        self, x0: np.ndarray, x_target: np.ndarray = None, u_target: np.ndarray = None
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        #################################################
-        # YOUR CODE HERE
+        # State Constraints
+        # States: [wz, gamma]
+        inf = 1e9
+        self.x_min = np.array([-inf, -inf])
+        self.x_max = np.array([inf, inf])
 
-        u0 = ...
-        x_traj = ...
-        u_traj = ...
+    # def _setup_controller(self) -> None:
+    #     #################################################
+    #     # YOUR CODE HERE
 
-        # YOUR CODE HERE
-        #################################################
+    #     self.ocp = ...
 
-        return u0, x_traj, u_traj
+    #     # YOUR CODE HERE
+    #     #################################################
+
+    # def get_u(
+    #     self, x0: np.ndarray, x_target: np.ndarray = None, u_target: np.ndarray = None
+    # ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    #     #################################################
+    #     # YOUR CODE HERE
+
+    #     u0 = ...
+    #     x_traj = ...
+    #     u_traj = ...
+
+    #     # YOUR CODE HERE
+    #     #################################################
+
+    #     return u0, x_traj, u_traj
