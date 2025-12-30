@@ -21,7 +21,7 @@ class MPCControl_zvel(MPCControl_base):
 
         # Input: Pavg [40, 80]
         # Trim is likely around 60.
-        u_abs_min = np.array([40.0])
+        u_abs_min = np.array([40.0 + 1e-2])
         u_abs_max = np.array([80.0])
 
         # Delta constraints
