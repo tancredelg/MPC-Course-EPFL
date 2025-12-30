@@ -10,10 +10,11 @@ class MPCControl_yvel(MPCControl_base):
     def set_tuning_parameters(self):
         # State penalty: [wy, beta, vx]
         # High penalty on velocity (tracking), medium on angle (stability), low on rate
-        self.Q = np.diag([1.0, 10.0, 20.0])
+        self.Q = np.diag([100.0, 30.0, 2.0])
+        # self.Q = np.diag([30.0, 20.0, 2.0])
 
         # Input penalty: [d2]
-        self.R = np.diag([5.0])
+        self.R = np.diag([0.5])
 
     def set_constraints(self):
         # Limits from PDF

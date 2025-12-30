@@ -180,9 +180,9 @@ class MPCControl_base:
         # Terminal Constraint (Invariant Set)
         # A_f * x_N <= b_f
         # Extract A and b from the mpt4py polyhedron
-        A_f = self.X_f.A
-        b_f = self.X_f.b
-        constraints.append(A_f @ self.x_var[:, self.N] <= b_f)
+        # A_f = self.X_f.A
+        # b_f = self.X_f.b
+        # constraints.append(A_f @ self.x_var[:, self.N] <= b_f)
 
         self.ocp = cp.Problem(cp.Minimize(cost), constraints)
 

@@ -88,14 +88,16 @@ class MPCControl_zvel(MPCControl_base):
 
         ss_cons = [
             xs == A @ xs + B @ (us_d + self.d_hat_par_ss),  # Bd = B baked here
-            xs == self.vz_ref_par + e_ref,
+            # xs == self.vz_ref_par + e_ref,
+            xs == self.vz_ref_par,
             us_d >= (self.u_min_abs - self.us),
             us_d <= (self.u_max_abs - self.us),
         ]
 
         # objective: keep delta input small + heavily penalize ref slack
         rho_ref = 1e4
-        ss_obj = cp.sum_squares(us_d) + rho_ref * cp.sum_squares(e_ref)
+        # ss_obj = cp.sum_squares(us_d) + rho_ref * cp.sum_squares(e_ref)
+        ss_obj = cp.sum_squares(us_d)
 
         self.xs_var, self.usd_var = xs, us_d
         self.ss_prob = cp.Problem(cp.Minimize(ss_obj), ss_cons)
