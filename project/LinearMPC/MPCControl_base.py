@@ -114,7 +114,7 @@ class MPCControl_base:
 
         # KU_poly = Polyhedron.from_Hrep(U_poly.A @ K, U_poly.b)
 
-        # Compute invariant set (O_inf)
+        # Compute terminal invariant set (O_inf)
         # We need a robust invariant set calculation. Use code from Exercise 4.
         O_inf = X_poly.intersect(U_poly)
         itr = 1
@@ -216,12 +216,7 @@ class MPCControl_base:
             x_traj = self.x_var.value
             u_traj = self.u_var.value
 
-        # The result is Delta u. We define the output as Delta u + u_target (usually us)
-        # But wait, the standard usually returns the *actual* input to apply.
-        # The template asks for u0, x_traj, u_traj.
-        # Usually, MPC returns the computed u_opt (delta) + u_trim.
-
-        # For x_traj and u_traj, we usually plot the absolute values.
+        # The result is Delta u. We define the output as Delta u + u_target (the template asks for u0, x_traj, u_traj)
 
         # If u_target is None, we assume regulation to Trim
         if u_target is None:
