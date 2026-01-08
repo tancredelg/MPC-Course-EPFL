@@ -15,7 +15,7 @@ class MPCControl_z(MPCControl_base):
 
     def set_tuning_parameters(self):
         # State: [vz, z]
-        self.Q = np.diag([60.0, 90.0])
+        self.Q = np.diag([0.0001, 16000.0])
         # Input: [Pavg]
         self.R = np.diag([1.0])
 
@@ -32,7 +32,7 @@ class MPCControl_z(MPCControl_base):
 
         # Input: Pavg [40, 80]
         # Trim is likely around 60.
-        safety_margin = 0.1
+        safety_margin = 0.2
         u_abs_min = np.array([40.0 + safety_margin])
         u_abs_max = np.array([80.0 - safety_margin])
 

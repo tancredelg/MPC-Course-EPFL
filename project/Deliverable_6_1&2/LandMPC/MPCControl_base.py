@@ -124,8 +124,9 @@ class MPCControl_base:
             F, f = O_inf.A, O_inf.b
             # Compute the pre-set
             O_inf = Polyhedron.from_Hrep(np.vstack((F, F @ A_cl)), np.vstack((f, f)).reshape((-1,)))
+            O_inf.minVrep(True)
             O_inf.minHrep(True)
-            _ = O_inf.Vrep  # TODO: this is a tempary fix since the contains() method is not robust enough when both inner and outer polyhera only has H-rep.
+            # _ = O_inf.Vrep  # TODO: this is a tempary fix since the contains() method is not robust enough when both inner and outer polyhera only has H-rep.
             if O_inf == Oprev:
                 converged = True
                 break
@@ -146,6 +147,9 @@ class MPCControl_base:
         self.u_var = cp.Variable((self.nu, self.N))
         self.x_param = cp.Parameter(self.nx)
 
+        s_var = cp.Variable((self.nx, self.N + 1), nonneg=True)
+        rho_slack = 1e-3  # need to see how this behaves, might need to increase
+
         cost = 0
         constraints = []
 
@@ -155,14 +159,17 @@ class MPCControl_base:
             # Cost
             cost += cp.quad_form(self.x_var[:, k], self.Q) + cp.quad_form(self.u_var[:, k], self.R)
 
+            # # L1 for penalty of the soft constraints
+            # cost += rho_slack * cp.sum(s_var[:, k])  # L1 penalty
+
             # Dynamics
             constraints.append(
                 self.x_var[:, k + 1] == self.A @ self.x_var[:, k] + self.B @ self.u_var[:, k]
             )
 
-            # State Constraints
-            constraints.append(self.x_var[:, k] <= self.x_max)
-            constraints.append(self.x_var[:, k] >= self.x_min)
+            # State Constraints - now becomes soft constraints
+            constraints.append(self.x_var[:, k] <= self.x_max + s_var[:, k])
+            constraints.append(self.x_var[:, k] >= self.x_min - s_var[:, k])
 
             # Input Constraints
             constraints.append(self.u_var[:, k] <= self.u_max)
@@ -171,12 +178,12 @@ class MPCControl_base:
         # Terminal Cost
         cost += cp.quad_form(self.x_var[:, self.N], self.Qf)
 
-        # Terminal Constraint (Invariant Set)
-        # A_f * x_N <= b_f
-        # Extract A and b from the mpt4py polyhedron
-        A_f = self.X_f.A
-        b_f = self.X_f.b
-        constraints.append(A_f @ self.x_var[:, self.N] <= b_f)
+        # # Terminal Constraint (Invariant Set)
+        # # A_f * x_N <= b_f
+        # # Extract A and b from the mpt4py polyhedron
+        # A_f = self.X_f.A
+        # b_f = self.X_f.b
+        # constraints.append(A_f @ self.x_var[:, self.N] <= b_f)
 
         self.ocp = cp.Problem(cp.Minimize(cost), constraints)
 
