@@ -9,7 +9,6 @@ class MPCControl_roll(MPCControl_base):
     u_ids: np.ndarray = np.array([3])
     termininal_set = False
 
-
     def set_tuning_parameters(self):
         """
         Define the Cost Matrices Q and R.
@@ -18,7 +17,7 @@ class MPCControl_roll(MPCControl_base):
         # State vector for this subsystem is: [wz, gamma]
         # We want to stabilize gamma (angle) aggressively.
         # We put a smaller cost on wz (rate) to dampen oscillations.
-        self.Q = np.diag([1.0, 20.0])
+        self.Q = np.diag([200.0, 800.0])
 
         # Input vector is: [Pdiff]
         # We penalize input usage. If this is too low, the controller might
