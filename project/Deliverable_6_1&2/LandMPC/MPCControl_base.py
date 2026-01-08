@@ -142,45 +142,59 @@ class MPCControl_base:
         self.X_f = O_inf
 
     def _setup_controller(self) -> None:
-        # CVXPY Variables
+        # 1. Define Variables
         self.x_var = cp.Variable((self.nx, self.N + 1))
         self.u_var = cp.Variable((self.nu, self.N))
-        self.x_param = cp.Parameter(self.nx)
 
-        s_var = cp.Variable((self.nx, self.N + 1), nonneg=True)
-        rho_slack = 1e-3  # need to see how this behaves, might need to increase
+        # SLACK VARIABLE for Soft Constraints
+        # Shape: (nx, N) - one slack per state per time step
+        # (We usually don't constrain the initial state x0, so N is fine)
+        self.slack = cp.Variable((self.nx, self.N), nonneg=True)
+
+        self.x_param = cp.Parameter(self.nx)
 
         cost = 0
         constraints = []
 
+        # Initial Condition
         constraints.append(self.x_var[:, 0] == self.x_param)
 
+        # Tuning for Slack Penalty
+        # Huge penalty so it only uses slack if absolutely necessary
+        slack_penalty = 1e9
+
         for k in range(self.N):
-            # Cost
+            # 2. Cost Function
             cost += cp.quad_form(self.x_var[:, k], self.Q) + cp.quad_form(self.u_var[:, k], self.R)
 
-            # # L1 for penalty of the soft constraints
-            # cost += rho_slack * cp.sum(s_var[:, k])  # L1 penalty
+            # Add Slack Penalty (L1 norm often works best for exact penalty, L2 also fine)
+            cost += slack_penalty * cp.sum(self.slack[:, k])
+            # Optional: Add L2 penalty to smooth it out
+            # cost += slack_penalty * cp.sum_squares(self.slack[:, k])
 
-            # Dynamics
+            # 3. Dynamics
             constraints.append(
                 self.x_var[:, k + 1] == self.A @ self.x_var[:, k] + self.B @ self.u_var[:, k]
             )
 
-            # State Constraints - now becomes soft constraints
-            constraints.append(self.x_var[:, k] <= self.x_max + s_var[:, k])
-            constraints.append(self.x_var[:, k] >= self.x_min - s_var[:, k])
+            # 4. Soft State Constraints
+            # x <= x_max + slack
+            # x >= x_min - slack
+            constraints.append(self.x_var[:, k] <= self.x_max + self.slack[:, k])
+            constraints.append(self.x_var[:, k] >= self.x_min - self.slack[:, k])
 
-            # Input Constraints
+            # 5. Hard Input Constraints (Physical limits of the servo/motor)
+            # We do NOT make these soft. The servo cannot physically go to 1200 rad.
             constraints.append(self.u_var[:, k] <= self.u_max)
             constraints.append(self.u_var[:, k] >= self.u_min)
 
-        # Terminal Cost
+        # 6. Terminal Cost
+        # Even without a terminal constraint, the terminal cost helps stability.
         cost += cp.quad_form(self.x_var[:, self.N], self.Qf)
 
-        # # Terminal Constraint (Invariant Set)
-        # # A_f * x_N <= b_f
-        # # Extract A and b from the mpt4py polyhedron
+        # Terminal Constraint (Invariant Set)
+        # A_f * x_N <= b_f
+        # !!! NO LONGER NEEDED !!!
         # A_f = self.X_f.A
         # b_f = self.X_f.b
         # constraints.append(A_f @ self.x_var[:, self.N] <= b_f)
@@ -207,12 +221,12 @@ class MPCControl_base:
         self.x_param.value = dx0
 
         try:
-            self.ocp.solve(solver=cp.OSQP, warm_start=True, verbose=False)
+            self.ocp.solve(solver=cp.PIQP, warm_start=True, verbose=False)
             # Use CLARABEL or OSQP. ECOS sometimes struggles with feasibility.
         except Exception as e:
             print(f"Solver failed: {e}")
 
-        if self.u_var.value is None:
+        if self.u_var.value is None or self.ocp.status in [cp.INFEASIBLE, cp.UNBOUNDED]:
             print(f"Optimization failed for {self.__class__.__name__}. Status: {self.ocp.status}")
             # Fallback (return zero delta input)
             u_opt = np.zeros(self.nu)

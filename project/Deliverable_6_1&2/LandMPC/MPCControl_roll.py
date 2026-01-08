@@ -1,4 +1,5 @@
 import numpy as np
+from control import dlqr
 
 from .MPCControl_base import MPCControl_base
 
@@ -37,26 +38,15 @@ class MPCControl_roll(MPCControl_base):
         self.x_min = np.array([-inf, -inf])
         self.x_max = np.array([inf, inf])
 
-    # def _setup_controller(self) -> None:
-    #     #################################################
-    #     # YOUR CODE HERE
+    def _compute_terminal_components(self):
+        """
+        Override for Part 6.2 Nominal Controllers.
+        We ONLY need the Terminal Cost (Qf), NOT the Terminal Set (Xf).
+        """
+        # 1. Calculate LQR Terminal Cost P (stored as self.Qf)
+        # We assume u = -Kx
+        K, self.Qf, _ = dlqr(self.A, self.B, self.Q, self.R)
 
-    #     self.ocp = ...
-
-    #     # YOUR CODE HERE
-    #     #################################################
-
-    # def get_u(
-    #     self, x0: np.ndarray, x_target: np.ndarray = None, u_target: np.ndarray = None
-    # ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    #     #################################################
-    #     # YOUR CODE HERE
-
-    #     u0 = ...
-    #     x_traj = ...
-    #     u_traj = ...
-
-    #     # YOUR CODE HERE
-    #     #################################################
-
-    #     return u0, x_traj, u_traj
+        # 2. Skip Set Calculation
+        # We don't need X_f because we won't enforce x_N in X_f
+        self.X_f = None
