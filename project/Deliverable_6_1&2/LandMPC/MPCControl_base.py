@@ -40,6 +40,8 @@ class MPCControl_base:
     Qf: np.ndarray
     X_f: Polyhedron
 
+    termininal_set: bool
+
     def __init__(
         self,
         A: np.ndarray,
@@ -73,7 +75,9 @@ class MPCControl_base:
         self.set_constraints()
 
         # Compute Terminal Components (LQR + Invariant Set)
-        self._compute_terminal_components()
+        K, self.Qf, _ = dlqr(self.A, self.B, self.Q, self.R)
+        if (self.termininal_set):
+            self._compute_terminal_components()
 
         self._setup_controller()
 
@@ -148,7 +152,7 @@ class MPCControl_base:
         self.x_param = cp.Parameter(self.nx)
 
         s_var = cp.Variable((self.nx, self.N + 1), nonneg=True)
-        rho_slack = 1e-3  # need to see how this behaves, might need to increase
+        rho_slack = 1e9  # need to see how this behaves, might need to increase
 
         cost = 0
         constraints = []
@@ -156,35 +160,26 @@ class MPCControl_base:
         constraints.append(self.x_var[:, 0] == self.x_param)
 
         for k in range(self.N):
-            # Cost
+            # Tracking Cost
             cost += cp.quad_form(self.x_var[:, k], self.Q) + cp.quad_form(self.u_var[:, k], self.R)
+            cost += rho_slack * cp.sum(s_var[:, k])
 
-            # # L1 for penalty of the soft constraints
-            # cost += rho_slack * cp.sum(s_var[:, k])  # L1 penalty
-
-            # Dynamics
+            # Dynamics (Hard)
             constraints.append(
                 self.x_var[:, k + 1] == self.A @ self.x_var[:, k] + self.B @ self.u_var[:, k]
             )
 
-            # State Constraints - now becomes soft constraints
+            # Softened State Constraints
             constraints.append(self.x_var[:, k] <= self.x_max + s_var[:, k])
             constraints.append(self.x_var[:, k] >= self.x_min - s_var[:, k])
 
-            # Input Constraints
+            # Hard Input Constraints
             constraints.append(self.u_var[:, k] <= self.u_max)
             constraints.append(self.u_var[:, k] >= self.u_min)
 
-        # Terminal Cost
+        # Terminal Cost (but no terminal constraint as requested)
         cost += cp.quad_form(self.x_var[:, self.N], self.Qf)
-
-        # # Terminal Constraint (Invariant Set)
-        # # A_f * x_N <= b_f
-        # # Extract A and b from the mpt4py polyhedron
-        # A_f = self.X_f.A
-        # b_f = self.X_f.b
-        # constraints.append(A_f @ self.x_var[:, self.N] <= b_f)
-
+        
         self.ocp = cp.Problem(cp.Minimize(cost), constraints)
 
     @staticmethod
@@ -207,7 +202,7 @@ class MPCControl_base:
         self.x_param.value = dx0
 
         try:
-            self.ocp.solve(solver=cp.OSQP, warm_start=True, verbose=False)
+            self.ocp.solve(solver=cp.PIQP, warm_start=True, verbose=False)
             # Use CLARABEL or OSQP. ECOS sometimes struggles with feasibility.
         except Exception as e:
             print(f"Solver failed: {e}")

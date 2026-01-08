@@ -12,6 +12,7 @@ class MPCControl_z(MPCControl_base):
 
     x_ids: np.ndarray = np.array([8, 11])
     u_ids: np.ndarray = np.array([2])
+    termininal_set = True
 
     def set_tuning_parameters(self):
         # State: [vz, z]
