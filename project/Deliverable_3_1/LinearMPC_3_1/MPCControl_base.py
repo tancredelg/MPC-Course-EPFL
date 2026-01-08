@@ -37,7 +37,7 @@ class MPCControl_base:
     u_max: np.ndarray
 
     # Terminal components
-    Qf: np.ndarray
+    Qf: np.ndarray  # Terminal cost matrix aka the P matrix
     X_f: Polyhedron
 
     def __init__(

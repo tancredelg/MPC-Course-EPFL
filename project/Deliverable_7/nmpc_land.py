@@ -28,7 +28,7 @@ class NmpcCtrl:
                 10,  # Rates
                 100,
                 100,
-                100,  # Angles (Keep upright!)
+                500,  # Angles (Keep upright!)
                 10,
                 10,
                 10,  # Velocities

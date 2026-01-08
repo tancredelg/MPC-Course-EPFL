@@ -37,7 +37,7 @@ class MPCControl_base:
     u_max: np.ndarray
 
     # Terminal components
-    Qf: np.ndarray
+    Qf: np.ndarray  # Terminal cost matrix aka the P matrix
     X_f: Polyhedron
 
     def __init__(
@@ -114,7 +114,7 @@ class MPCControl_base:
 
         # KU_poly = Polyhedron.from_Hrep(U_poly.A @ K, U_poly.b)
 
-        # Compute invariant set (O_inf)
+        # Compute terminal invariant set (O_inf)
         # We need a robust invariant set calculation. Use code from Exercise 4.
         O_inf = X_poly.intersect(U_poly)
         itr = 1
@@ -140,66 +140,11 @@ class MPCControl_base:
 
         self.X_f = O_inf
 
-
-    # hard constraints
-    # def _setup_controller(self) -> None:
-    #     # CVXPY Variables
-    #     self.x_var = cp.Variable((self.nx, self.N + 1))
-    #     self.u_var = cp.Variable((self.nu, self.N))
-    #     self.x_param = cp.Parameter(self.nx)
-
-    #     s_var = cp.Variable((self.nx, self.N + 1), nonneg=True)
-    #     rho_slack = 1e4 # need to see how this behaves, might need to increase
-
-    #     cost = 0
-    #     constraints = []
-
-    #     constraints.append(self.x_var[:, 0] == self.x_param)
-
-    #     for k in range(self.N):
-    #         # Cost
-    #         cost += cp.quad_form(self.x_var[:, k], self.Q) + cp.quad_form(self.u_var[:, k], self.R)
-
-    #         # Dynamics
-    #         constraints.append(
-    #             self.x_var[:, k + 1] == self.A @ self.x_var[:, k] + self.B @ self.u_var[:, k]
-    #         )
-
-    #         # State Constraints - now becomes soft constraints
-    #         constraints.append(self.x_var[:, k] <= self.x_max)
-    #         constraints.append(self.x_var[:, k] >= self.x_min)
-
-    #         # constraints.append(self.x_var[:, k] <= self.x_max + s_var[:, k])
-    #         # constraints.append(self.x_var[:, k] >= self.x_min - s_var[:, k])            
-
-    #         # Input Constraints
-    #         constraints.append(self.u_var[:, k] <= self.u_max)
-    #         constraints.append(self.u_var[:, k] >= self.u_min)
-
-    #     # Terminal Cost
-    #     cost += cp.quad_form(self.x_var[:, self.N], self.Qf)
-
-    #     # L1 for penalty of the soft constraints
-    #     # cost += rho_slack * cp.sum(s_var[:, k])   # L1 penalty
-
-    #     # Terminal Constraint (Invariant Set)
-    #     # A_f * x_N <= b_f
-    #     # Extract A and b from the mpt4py polyhedron
-    #     A_f = self.X_f.A
-    #     b_f = self.X_f.b
-    #     constraints.append(A_f @ self.x_var[:, self.N] <= b_f)
-
-    #     self.ocp = cp.Problem(cp.Minimize(cost), constraints)
-
-
     def _setup_controller(self) -> None:
         # CVXPY Variables
         self.x_var = cp.Variable((self.nx, self.N + 1))
         self.u_var = cp.Variable((self.nu, self.N))
         self.x_param = cp.Parameter(self.nx)
-
-        s_var = cp.Variable((self.nx, self.N + 1), nonneg=True)
-        rho_slack = 1e9 # need to see how this behaves, might need to increase
 
         cost = 0
         constraints = []
@@ -215,9 +160,9 @@ class MPCControl_base:
                 self.x_var[:, k + 1] == self.A @ self.x_var[:, k] + self.B @ self.u_var[:, k]
             )
 
-            # State Constraints - now becomes soft constraints
-            constraints.append(self.x_var[:, k] <= self.x_max + s_var[:, k])
-            constraints.append(self.x_var[:, k] >= self.x_min - s_var[:, k])            
+            # State Constraints
+            constraints.append(self.x_var[:, k] <= self.x_max)
+            constraints.append(self.x_var[:, k] >= self.x_min)
 
             # Input Constraints
             constraints.append(self.u_var[:, k] <= self.u_max)
@@ -225,9 +170,6 @@ class MPCControl_base:
 
         # Terminal Cost
         cost += cp.quad_form(self.x_var[:, self.N], self.Qf)
-
-        # L1 for penalty of the soft constraints
-        cost += rho_slack * cp.sum(s_var[:, k])   # L1 penalty
 
         # Terminal Constraint (Invariant Set)
         # A_f * x_N <= b_f
@@ -237,7 +179,6 @@ class MPCControl_base:
         constraints.append(A_f @ self.x_var[:, self.N] <= b_f)
 
         self.ocp = cp.Problem(cp.Minimize(cost), constraints)
-
 
     @staticmethod
     def _discretize(A: np.ndarray, B: np.ndarray, Ts: float):
@@ -275,12 +216,7 @@ class MPCControl_base:
             x_traj = self.x_var.value
             u_traj = self.u_var.value
 
-        # The result is Delta u. We define the output as Delta u + u_target (usually us)
-        # But wait, the standard usually returns the *actual* input to apply.
-        # The template asks for u0, x_traj, u_traj.
-        # Usually, MPC returns the computed u_opt (delta) + u_trim.
-
-        # For x_traj and u_traj, we usually plot the absolute values.
+        # The result is Delta u. We define the output as Delta u + u_target (the template asks for u0, x_traj, u_traj)
 
         # If u_target is None, we assume regulation to Trim
         if u_target is None:
