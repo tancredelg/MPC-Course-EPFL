@@ -40,6 +40,8 @@ class MPCControl_base:
     Qf: np.ndarray
     X_f: Polyhedron
 
+    termininal_set: bool
+
     def __init__(
         self,
         A: np.ndarray,
@@ -73,7 +75,9 @@ class MPCControl_base:
         self.set_constraints()
 
         # Compute Terminal Components (LQR + Invariant Set)
-        self._compute_terminal_components()
+        K, self.Qf, _ = dlqr(self.A, self.B, self.Q, self.R)
+        if self.termininal_set:
+            self._compute_terminal_components()
 
         self._setup_controller()
 
@@ -153,6 +157,9 @@ class MPCControl_base:
 
         self.x_param = cp.Parameter(self.nx)
 
+        s_var = cp.Variable((self.nx, self.N + 1), nonneg=True)
+        rho_slack = 1e9  # need to see how this behaves, might need to increase
+
         cost = 0
         constraints = []
 
@@ -164,40 +171,25 @@ class MPCControl_base:
         slack_penalty = 1e9
 
         for k in range(self.N):
-            # 2. Cost Function
+            # Tracking Cost
             cost += cp.quad_form(self.x_var[:, k], self.Q) + cp.quad_form(self.u_var[:, k], self.R)
+            cost += rho_slack * cp.sum(s_var[:, k])
 
-            # Add Slack Penalty (L1 norm often works best for exact penalty, L2 also fine)
-            cost += slack_penalty * cp.sum(self.slack[:, k])
-            # Optional: Add L2 penalty to smooth it out
-            # cost += slack_penalty * cp.sum_squares(self.slack[:, k])
-
-            # 3. Dynamics
+            # Dynamics (Hard)
             constraints.append(
                 self.x_var[:, k + 1] == self.A @ self.x_var[:, k] + self.B @ self.u_var[:, k]
             )
 
-            # 4. Soft State Constraints
-            # x <= x_max + slack
-            # x >= x_min - slack
-            constraints.append(self.x_var[:, k] <= self.x_max + self.slack[:, k])
-            constraints.append(self.x_var[:, k] >= self.x_min - self.slack[:, k])
+            # Softened State Constraints
+            constraints.append(self.x_var[:, k] <= self.x_max + s_var[:, k])
+            constraints.append(self.x_var[:, k] >= self.x_min - s_var[:, k])
 
-            # 5. Hard Input Constraints (Physical limits of the servo/motor)
-            # We do NOT make these soft. The servo cannot physically go to 1200 rad.
+            # Hard Input Constraints
             constraints.append(self.u_var[:, k] <= self.u_max)
             constraints.append(self.u_var[:, k] >= self.u_min)
 
-        # 6. Terminal Cost
-        # Even without a terminal constraint, the terminal cost helps stability.
+        # Terminal Cost (but no terminal constraint as requested)
         cost += cp.quad_form(self.x_var[:, self.N], self.Qf)
-
-        # Terminal Constraint (Invariant Set)
-        # A_f * x_N <= b_f
-        # !!! NO LONGER NEEDED !!!
-        # A_f = self.X_f.A
-        # b_f = self.X_f.b
-        # constraints.append(A_f @ self.x_var[:, self.N] <= b_f)
 
         self.ocp = cp.Problem(cp.Minimize(cost), constraints)
 
