@@ -37,7 +37,7 @@ class MPCControl_base:
     u_max: np.ndarray
 
     # Terminal components
-    Qf: np.ndarray  # Terminal cost matrix aka the P matrix
+    Qf: np.ndarray
     X_f: Polyhedron
 
     def __init__(
@@ -114,7 +114,7 @@ class MPCControl_base:
 
         # KU_poly = Polyhedron.from_Hrep(U_poly.A @ K, U_poly.b)
 
-        # Compute terminal invariant set (O_inf)
+        # Compute invariant set (O_inf)
         # We need a robust invariant set calculation. Use code from Exercise 4.
         O_inf = X_poly.intersect(U_poly)
         itr = 1
@@ -145,7 +145,9 @@ class MPCControl_base:
         self.x_var = cp.Variable((self.nx, self.N + 1))
         self.u_var = cp.Variable((self.nu, self.N))
         self.x_param = cp.Parameter(self.nx)
-        self.ref_param = cp.Parameter(self.nx)  # Reference state
+
+        s_var = cp.Variable((self.nx, self.N + 1), nonneg=True)
+        rho_slack = 1e4 # need to see how this behaves, might need to increase
 
         cost = 0
         constraints = []
@@ -154,19 +156,16 @@ class MPCControl_base:
 
         for k in range(self.N):
             # Cost
-            # Penalize deviation from REFERENCE, not origin
-            # State is deviation from Trim. Reference is deviation from Trim.
-            error = self.x_var[:, k] - self.ref_param
-            cost += cp.quad_form(error, self.Q) + cp.quad_form(self.u_var[:, k], self.R)
+            cost += cp.quad_form(self.x_var[:, k], self.Q) + cp.quad_form(self.u_var[:, k], self.R)
 
             # Dynamics
             constraints.append(
                 self.x_var[:, k + 1] == self.A @ self.x_var[:, k] + self.B @ self.u_var[:, k]
             )
 
-            # State Constraints
-            constraints.append(self.x_var[:, k] <= self.x_max)
-            constraints.append(self.x_var[:, k] >= self.x_min)
+            # State Constraints - now becomes soft constraints
+            constraints.append(self.x_var[:, k] <= self.x_max + s_var[:, k])
+            constraints.append(self.x_var[:, k] >= self.x_min - s_var[:, k])
 
             # Input Constraints
             constraints.append(self.u_var[:, k] <= self.u_max)
@@ -175,12 +174,15 @@ class MPCControl_base:
         # Terminal Cost
         cost += cp.quad_form(self.x_var[:, self.N], self.Qf)
 
+        # L1 for penalty of the soft constraints
+        cost += rho_slack * cp.sum(s_var[:, k])   # L1 penalty
+
         # Terminal Constraint (Invariant Set)
         # A_f * x_N <= b_f
         # Extract A and b from the mpt4py polyhedron
-        A_f = self.X_f.A
-        b_f = self.X_f.b
-        constraints.append(A_f @ self.x_var[:, self.N] <= b_f)
+        # A_f = self.X_f.A
+        # b_f = self.X_f.b
+        # constraints.append(A_f @ self.x_var[:, self.N] <= b_f)
 
         self.ocp = cp.Problem(cp.Minimize(cost), constraints)
 
@@ -195,16 +197,13 @@ class MPCControl_base:
     def get_u(
         self, x0: np.ndarray, x_target: np.ndarray = None, u_target: np.ndarray = None
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        # Calculate Delta x0
         if x_target is None:
-            x_target = self.xs
+            x_target = np.zeros(self.nx)  # Target is 0 deviation (steady state)
 
-        # 1. State is deviation from TRIM (Fixed Origin)
-        dx0 = x0 - self.xs
+        dx0 = x0 - x_target
+
         self.x_param.value = dx0
-
-        # 2. Reference is deviation from TRIM
-        dref = x_target - self.xs
-        self.ref_param.value = dref
 
         try:
             self.ocp.solve(solver=cp.OSQP, warm_start=True, verbose=False)
@@ -223,7 +222,12 @@ class MPCControl_base:
             x_traj = self.x_var.value
             u_traj = self.u_var.value
 
-        # The result is Delta u. We define the output as Delta u + u_target (the template asks for u0, x_traj, u_traj)
+        # The result is Delta u. We define the output as Delta u + u_target (usually us)
+        # But wait, the standard usually returns the *actual* input to apply.
+        # The template asks for u0, x_traj, u_traj.
+        # Usually, MPC returns the computed u_opt (delta) + u_trim.
+
+        # For x_traj and u_traj, we usually plot the absolute values.
 
         # If u_target is None, we assume regulation to Trim
         if u_target is None:
@@ -232,4 +236,4 @@ class MPCControl_base:
             u_ref = u_target
 
         # Return absolute values
-        return u_opt + u_ref, x_traj + self.xs.reshape(-1, 1), u_traj + u_ref.reshape(-1, 1)
+        return u_opt + u_ref, x_traj + x_target.reshape(-1, 1), u_traj + u_ref.reshape(-1, 1)

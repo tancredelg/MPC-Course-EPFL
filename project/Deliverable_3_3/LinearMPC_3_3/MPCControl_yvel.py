@@ -35,27 +35,3 @@ class MPCControl_yvel(MPCControl_base):
         # For X-system, trim d2 is 0.
         self.u_min = np.array([-d_limit]) - self.us
         self.u_max = np.array([d_limit]) - self.us
-
-    # def _setup_controller(self) -> None:
-    #     #################################################
-    #     # YOUR CODE HERE
-
-    #     self.ocp = ...
-
-    #     # YOUR CODE HERE
-    #     #################################################
-
-    # def get_u(
-    #     self, x0: np.ndarray, x_target: np.ndarray = None, u_target: np.ndarray = None
-    # ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    #     #################################################
-    #     # YOUR CODE HERE
-
-    #     u0 = ...
-    #     x_traj = ...
-    #     u_traj = ...
-
-    #     # YOUR CODE HERE
-    #     #################################################
-
-    #     return u0, x_traj, u_traj

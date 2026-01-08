@@ -145,6 +145,7 @@ class MPCControl_base:
         self.x_var = cp.Variable((self.nx, self.N + 1))
         self.u_var = cp.Variable((self.nu, self.N))
         self.x_param = cp.Parameter(self.nx)
+        self.ref_param = cp.Parameter(self.nx)  # Reference state
 
         cost = 0
         constraints = []
@@ -153,7 +154,10 @@ class MPCControl_base:
 
         for k in range(self.N):
             # Cost
-            cost += cp.quad_form(self.x_var[:, k], self.Q) + cp.quad_form(self.u_var[:, k], self.R)
+            # Penalize deviation from REFERENCE, not origin
+            # State is deviation from Trim. Reference is deviation from Trim.
+            error = self.x_var[:, k] - self.ref_param
+            cost += cp.quad_form(error, self.Q) + cp.quad_form(self.u_var[:, k], self.R)
 
             # Dynamics
             constraints.append(
@@ -191,13 +195,16 @@ class MPCControl_base:
     def get_u(
         self, x0: np.ndarray, x_target: np.ndarray = None, u_target: np.ndarray = None
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        # Calculate Delta x0
         if x_target is None:
-            x_target = np.zeros(self.nx)  # Target is 0 deviation (steady state)
+            x_target = self.xs
 
-        dx0 = x0 - x_target
-
+        # 1. State is deviation from TRIM (Fixed Origin)
+        dx0 = x0 - self.xs
         self.x_param.value = dx0
+
+        # 2. Reference is deviation from TRIM
+        dref = x_target - self.xs
+        self.ref_param.value = dref
 
         try:
             self.ocp.solve(solver=cp.OSQP, warm_start=True, verbose=False)
@@ -225,4 +232,4 @@ class MPCControl_base:
             u_ref = u_target
 
         # Return absolute values
-        return u_opt + u_ref, x_traj + x_target.reshape(-1, 1), u_traj + u_ref.reshape(-1, 1)
+        return u_opt + u_ref, x_traj + self.xs.reshape(-1, 1), u_traj + u_ref.reshape(-1, 1)

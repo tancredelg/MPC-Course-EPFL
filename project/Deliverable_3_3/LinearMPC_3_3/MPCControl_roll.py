@@ -15,7 +15,7 @@ class MPCControl_roll(MPCControl_base):
         # State vector for this subsystem is: [wz, gamma]
         # We want to stabilize gamma (angle) aggressively.
         # We put a smaller cost on wz (rate) to dampen oscillations.
-        self.Q = np.diag([1.0, 20.0])
+        self.Q = np.diag([1.0, 60.0])
 
         # Input vector is: [Pdiff]
         # We penalize input usage. If this is too low, the controller might
@@ -36,27 +36,3 @@ class MPCControl_roll(MPCControl_base):
         inf = 1e9
         self.x_min = np.array([-inf, -inf])
         self.x_max = np.array([inf, inf])
-
-    # def _setup_controller(self) -> None:
-    #     #################################################
-    #     # YOUR CODE HERE
-
-    #     self.ocp = ...
-
-    #     # YOUR CODE HERE
-    #     #################################################
-
-    # def get_u(
-    #     self, x0: np.ndarray, x_target: np.ndarray = None, u_target: np.ndarray = None
-    # ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    #     #################################################
-    #     # YOUR CODE HERE
-
-    #     u0 = ...
-    #     x_traj = ...
-    #     u_traj = ...
-
-    #     # YOUR CODE HERE
-    #     #################################################
-
-    #     return u0, x_traj, u_traj
