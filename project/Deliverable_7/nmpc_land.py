@@ -93,22 +93,30 @@ class NmpcCtrl:
         self.opti.subject_to(self.X[11, :] >= 0)
 
         # Singularity Avoidance: |beta| < 80 deg (approx 1.4 rad)
-        self.opti.subject_to(self.opti.bounded(-1.4, self.X[4, :], 1.4))
+        beta_limit = np.deg2rad(80)
+        self.opti.subject_to(self.opti.bounded(-beta_limit, self.X[4, :], beta_limit))
 
         # 4. Input Constraints
         # d1, d2: +/- 15 deg (0.26 rad)
-        self.opti.subject_to(self.opti.bounded(-0.26, self.U[0, :], 0.26))
-        self.opti.subject_to(self.opti.bounded(-0.26, self.U[1, :], 0.26))
+        servo_limit = np.deg2rad(15)
+        self.opti.subject_to(self.opti.bounded(-servo_limit, self.U[0, :], servo_limit))
+        self.opti.subject_to(self.opti.bounded(-servo_limit, self.U[1, :], servo_limit))
 
         # Pavg: [40, 80]
-        self.opti.subject_to(self.opti.bounded(40.0, self.U[2, :], 80.0))
+        self.opti.subject_to(self.opti.bounded(10.0, self.U[2, :], 90.0))
 
         # Pdiff: [-20, 20]
         self.opti.subject_to(self.opti.bounded(-20.0, self.U[3, :], 20.0))
 
         # --- Solver Settings ---
         p_opts = {"expand": True}  # Expand graph for speed
-        s_opts = {"max_iter": 100, "print_level": 0, "tol": 1e-3, "acceptable_tol": 1e-2}
+        s_opts = {
+            "max_iter": 500,
+            "print_level": 0,
+            "tol": 1e-3,
+            "acceptable_tol": 1e-2,
+            "warm_start_init_point": "yes",
+        }
         self.opti.solver("ipopt", p_opts, s_opts)
 
         # Storage for Warm Start
