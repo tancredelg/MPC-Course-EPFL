@@ -147,7 +147,8 @@ class MPCControl_base:
         self.x_param = cp.Parameter(self.nx)
 
         s_var = cp.Variable((self.nx, self.N + 1), nonneg=True)
-        rho_slack = 1e4 # need to see how this behaves, might need to increase
+        rho_slack_l1 = 1e9
+        rho_slack_l2 = 1e5
 
         cost = 0
         constraints = []
@@ -157,6 +158,7 @@ class MPCControl_base:
         for k in range(self.N):
             # Cost
             cost += cp.quad_form(self.x_var[:, k], self.Q) + cp.quad_form(self.u_var[:, k], self.R)
+            # cost += rho_slack_l1 * cp.sum(s_var[:, k])   # L1 penalty
 
             # Dynamics
             constraints.append(
@@ -174,8 +176,9 @@ class MPCControl_base:
         # Terminal Cost
         cost += cp.quad_form(self.x_var[:, self.N], self.Qf)
 
-        # L1 for penalty of the soft constraints
-        cost += rho_slack * cp.sum(s_var[:, k])   # L1 penalty
+        # L2 for penalty of the soft constraints
+        cost += rho_slack_l2 * cp.sum_squares(s_var)   # L1 penalty
+
 
         # Terminal Constraint (Invariant Set)
         # A_f * x_N <= b_f
@@ -206,7 +209,7 @@ class MPCControl_base:
         self.x_param.value = dx0
 
         try:
-            self.ocp.solve(solver=cp.OSQP, warm_start=True, verbose=False)
+            self.ocp.solve(solver=cp.PIQP, warm_start=True, verbose=False)
             # Use CLARABEL or OSQP. ECOS sometimes struggles with feasibility.
         except Exception as e:
             print(f"Solver failed: {e}")

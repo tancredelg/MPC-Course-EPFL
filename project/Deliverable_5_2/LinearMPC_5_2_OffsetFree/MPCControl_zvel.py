@@ -56,10 +56,9 @@ class MPCControl_zvel(MPCControl_base):
                                [0.0]])
 
         C_hat = np.array([[1.0, 0.0]])  # y = x
-        poles = np.array([0.8, 0.9])    # tune if needed
+        # poles = np.array([0.8, 0.9])
+        poles = np.array([0.6, 0.7])
         L = place_poles(self.A_hat.T, C_hat.T, poles).gain_matrix.T  # (2,1)
-
-        # IMPORTANT: match your sign convention: + L (y_hat - y)
         self.L = -L
 
     def _setup_controller(self):
