@@ -8,24 +8,21 @@ class MPCControl_yvel(MPCControl_base):
     u_ids: np.ndarray = np.array([0])
 
     def set_tuning_parameters(self):
-        # State penalty: [wy, beta, vx]
-        # High penalty on velocity (tracking), medium on angle (stability), low on rate
+        # State penalty: [wx, alpha, vy]
         self.Q = np.diag([1.0, 10.0, 20.0])
 
         # Input penalty: [d2]
         self.R = np.diag([5.0])
 
     def set_constraints(self):
-        # Limits from PDF
-        # States: [wy, beta, vx]
-        # beta limit: 10 deg (~0.1745 rad)
+        # States: [wx, alpha, vy]
+        # alpha limit: 10 deg (~0.1745 rad)
         inf = 1e9
-        beta_limit = np.deg2rad(10)
+        alpha_limit = np.deg2rad(10)
 
         # Delta States Constraints relative to trim (trim is 0 for these)
-        self.x_min = np.array([-inf, -beta_limit, -inf])
-        self.x_max = np.array([inf, beta_limit, inf])
-
+        self.x_min = np.array([-inf, -alpha_limit, -inf])
+        self.x_max = np.array([inf, alpha_limit, inf])
         # Input Limits: Servo angle
         # d2 limit: 15 deg (~0.26 rad)
         d_limit = np.deg2rad(15)

@@ -229,12 +229,8 @@ class MPCControl_base:
             x_traj = self.x_var.value
             u_traj = self.u_var.value
 
-        # The result is Delta u. We define the output as Delta u + u_target (usually us)
-        # But wait, the standard usually returns the *actual* input to apply.
+        # The result is Delta u. We define the output as Delta u + u_target.
         # The template asks for u0, x_traj, u_traj.
-        # Usually, MPC returns the computed u_opt (delta) + u_trim.
-
-        # For x_traj and u_traj, we usually plot the absolute values.
 
         # If u_target is None, we assume regulation to Trim
         if u_target is None:
