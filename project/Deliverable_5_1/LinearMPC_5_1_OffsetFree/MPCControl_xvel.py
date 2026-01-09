@@ -8,7 +8,7 @@ class MPCControl_xvel(MPCControl_base):
     u_ids: np.ndarray = np.array([1])
 
     def set_tuning_parameters(self):
-        # State penalty: [wy, beta, vx]
+        # State penalty: [wy, alpha, vx]
         # High penalty on velocity (tracking), medium on angle (stability), low on rate
         self.Q = np.diag([1.0, 10.0, 20.0])
 
@@ -16,18 +16,15 @@ class MPCControl_xvel(MPCControl_base):
         self.R = np.diag([5.0])
 
     def set_constraints(self):
-        # Limits from PDF
-        # States: [wy, beta, vx]
-        # beta limit: 10 deg (~0.1745 rad)
-        inf = 1e9
-        beta_limit = np.deg2rad(10) - 1e-3
-
-        # Delta States Constraints relative to trim (trim is 0 for these)
-        self.x_min = np.array([-inf, -beta_limit, -inf])
-        self.x_max = np.array([inf, beta_limit, inf])
+        # States: [wy, alpha, vx]
+        beta_limit = np.deg2rad(8)
+        d_limit = np.deg2rad(15)
+        v_limit = 6.0
+        w_limit = 0.7 
+        self.x_min = np.array([-w_limit, -beta_limit, -v_limit])
+        self.x_max = np.array([w_limit, beta_limit, v_limit])
 
         # Input Limits: Servo angle
-        # d2 limit: 15 deg (~0.26 rad)
         d_limit = np.deg2rad(15) - 1e-3
 
         # Calculate Delta u constraints
