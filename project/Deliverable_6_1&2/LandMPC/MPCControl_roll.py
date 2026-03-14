@@ -38,16 +38,3 @@ class MPCControl_roll(MPCControl_base):
         inf = 1e9
         self.x_min = np.array([-inf, -inf])
         self.x_max = np.array([inf, inf])
-
-    def _compute_terminal_components(self):
-        """
-        Override for Part 6.2 Nominal Controllers.
-        We ONLY need the Terminal Cost (Qf), NOT the Terminal Set (Xf).
-        """
-        # 1. Calculate LQR Terminal Cost P (stored as self.Qf)
-        # We assume u = -Kx
-        K, self.Qf, _ = dlqr(self.A, self.B, self.Q, self.R)
-
-        # 2. Skip Set Calculation
-        # We don't need X_f because we won't enforce x_N in X_f
-        self.X_f = None

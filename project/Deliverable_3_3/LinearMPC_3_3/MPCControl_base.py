@@ -180,7 +180,8 @@ class MPCControl_base:
         # Extract A and b from the mpt4py polyhedron
         A_f = self.X_f.A
         b_f = self.X_f.b
-        constraints.append(A_f @ self.x_var[:, self.N] <= b_f)
+        error_N = self.x_var[:, self.N] - self.ref_param
+        constraints.append(A_f @ error_N <= b_f)
 
         self.ocp = cp.Problem(cp.Minimize(cost), constraints)
 

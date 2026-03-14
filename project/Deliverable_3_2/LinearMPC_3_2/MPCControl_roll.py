@@ -15,7 +15,7 @@ class MPCControl_roll(MPCControl_base):
         # State vector for this subsystem is: [wz, gamma]
         # We want to stabilize gamma (angle) aggressively.
         # We put a smaller cost on wz (rate) to dampen oscillations.
-        self.Q = np.diag([1.0, 60.0])
+        self.Q = np.diag([1.0, 400.0])
 
         # Input vector is: [Pdiff]
         # We penalize input usage. If this is too low, the controller might
